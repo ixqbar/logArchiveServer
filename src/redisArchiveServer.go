@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"time"
 	"runtime"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -186,7 +188,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	ser.ListenAndServe()
+	sigs := make(chan os.Signal)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		<-sigs
+		ser.Stop(10)
+	}()
+
+	err = ser.ListenAndServe()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	lrh.Shutdown()
+
+	fmt.Printf("server shudown\n")
+
+	os.Exit(0)
 }

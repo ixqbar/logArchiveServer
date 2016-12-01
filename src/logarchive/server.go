@@ -8,6 +8,7 @@ import (
 	"errors"
 	"time"
 	"bytes"
+	"os"
 )
 
 type HandlerFn func(r *Request) (ReplyWriter, error)
@@ -15,14 +16,18 @@ type CheckerFn func(request *Request) (reflect.Value, ReplyWriter)
 type HashValue map[string][]byte
 
 type Server struct {
-	Addr    string
+	addr    string
 	methods map[string]HandlerFn
+	socket  *net.TCPListener
+	cm      *ConnectionManager
 }
 
 func NewServer(addr string, handler Handler) (*Server, error) {
 	srv := &Server{
-		Addr    : addr,
+		addr    : addr,
 		methods : make(map[string]HandlerFn),
+		socket  : nil,
+		cm      : NewConnectionManager(),
 	}
 
 	rh := reflect.TypeOf(handler)
@@ -47,35 +52,80 @@ func NewServer(addr string, handler Handler) (*Server, error) {
 }
 
 func (srv *Server) ListenAndServe() error {
-	proto := "unix"
+	if strings.Contains(srv.addr, ":") {
+		addr, err := net.ResolveTCPAddr("tcp", srv.addr)
+		if err != nil {
+			return fmt.Errorf("fail to resolve addr: %v", err)
+		}
 
-	if strings.Contains(srv.Addr, ":") {
-		proto = "tcp"
+		sock, err := net.ListenTCP("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("fail to listen tcp: %v", err)
+		}
+
+		srv.socket = sock
+	} else {
+		file, err := os.OpenFile(srv.addr, os.O_CREATE | os.O_RDWR, 0644);
+		if err != nil {
+			return fmt.Errorf("fail to open sock file %v", err)
+		}
+
+		listener, err := net.FileListener(file)
+		if err != nil {
+			return fmt.Errorf("fail recover socket from file %v", err)
+		}
+
+		sock, ok := listener.(*net.TCPListener)
+		if !ok {
+			return fmt.Errorf("sock file is not a valid TCP socket")
+		}
+
+		srv.socket = sock
 	}
 
-	l, e := net.Listen(proto, srv.Addr)
-	if e != nil {
-		fmt.Errorf("run failed:%s", e.Error())
-		return e
-	}
-
-	return srv.Serve(l)
+	return srv.Serve()
 }
 
-func (srv *Server) Serve(l net.Listener) error {
-	defer l.Close()
+func (srv *Server) Serve() error {
+	defer srv.socket.Close()
 
 	for {
-		rw, err := l.Accept()
+		conn, err := srv.socket.Accept()
 		if err != nil {
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				break;
+			}
 			return err
 		}
-		go srv.ServeClient(rw)
+
+		go func() {
+			srv.cm.Add(1)
+			srv.ServeClient(conn)
+			srv.cm.Done()
+		}()
 	}
 
-	Debugf("server accept failed")
+	Debugf("server accept stopped")
 
 	return nil
+}
+
+func (srv *Server) Stop(timeout uint) error {
+	srv.socket.SetDeadline(time.Now())
+
+	tt := time.NewTimer(time.Second * time.Duration(timeout))
+	wait := make(chan struct{})
+	go func() {
+		srv.cm.Wait()
+		wait <- struct{}{}
+	}()
+
+	select {
+	case <-tt.C:
+		return ErrStopServerTimeout
+	case <-wait:
+		return nil
+	}
 }
 
 func (srv *Server) ServeClient(conn net.Conn) (err error) {
