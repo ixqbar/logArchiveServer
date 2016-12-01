@@ -85,13 +85,13 @@ func (this *LocalRedisFileHandler) FlushDB(db int) (string, error) {
 }
 
 func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (string, error) {
-	this.Lock()
-	defer this.Unlock()
-
-	matched, _ := regexp.MatchString("[a-zA-Z\\-_:]{1,}", fileName)
+	matched, _ := regexp.MatchString("^[a-zA-Z\\-_:]{1,}$", fileName)
 	if !matched {
 		return "", ERRPARAMS
 	}
+
+	this.Lock()
+	defer this.Unlock()
 
 	file := LogFiles[fileName]
 
