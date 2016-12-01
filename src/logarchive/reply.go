@@ -12,6 +12,10 @@ type ErrorReply struct {
 	message string
 }
 
+func NewErrorReply(message string) *ErrorReply {
+	return &ErrorReply{code: "ERROR", message: message}
+}
+
 func (this *ErrorReply) WriteTo(w io.Writer) (int64, error) {
 	n, err := w.Write([]byte("-" + this.code + " " + this.message + "\r\n"))
 	return int64(n), err
@@ -19,10 +23,6 @@ func (this *ErrorReply) WriteTo(w io.Writer) (int64, error) {
 
 func (this *ErrorReply) Error() string {
 	return "-" + this.code + " " + this.message + "\r\n"
-}
-
-func NewErrorReply(message string) *ErrorReply {
-	return &ErrorReply{code: "ERROR", message: message}
 }
 
 type StatusReply struct {

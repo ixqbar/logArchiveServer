@@ -5,7 +5,20 @@ import (
 	"errors"
 	"io"
 	"bytes"
+	"fmt"
 )
+
+func malformed(expected string, got string) error {
+	return fmt.Errorf("Mailformed request:'%s does not match %s\\r\\n'", got, expected)
+}
+
+func malformedLength(expected int, got int) error {
+	return fmt.Errorf("Mailformed request: argument length '%d does not match %d\\r\\n'", got, expected)
+}
+
+func malformedMissingCRLF() error {
+	return fmt.Errorf("Mailformed request: line should end with \\r\\n")
+}
 
 func ReplyToString(r ReplyWriter) (string, error) {
 	var b bytes.Buffer

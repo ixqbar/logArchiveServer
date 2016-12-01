@@ -51,7 +51,7 @@ func NewServer(addr string, handler Handler) (*Server, error) {
 	return srv, nil
 }
 
-func (srv *Server) ListenAndServe() error {
+func (srv *Server) Start() error {
 	if strings.Contains(srv.addr, ":") {
 		addr, err := net.ResolveTCPAddr("tcp", srv.addr)
 		if err != nil {
@@ -83,10 +83,10 @@ func (srv *Server) ListenAndServe() error {
 		srv.socket = sock
 	}
 
-	return srv.Serve()
+	return srv.acceptLoop()
 }
 
-func (srv *Server) Serve() error {
+func (srv *Server) acceptLoop() error {
 	defer srv.socket.Close()
 
 	for {
@@ -100,7 +100,7 @@ func (srv *Server) Serve() error {
 
 		go func() {
 			srv.cm.Add(1)
-			srv.ServeClient(conn)
+			srv.handleConn(conn)
 			srv.cm.Done()
 		}()
 	}
@@ -128,7 +128,7 @@ func (srv *Server) Stop(timeout uint) error {
 	}
 }
 
-func (srv *Server) ServeClient(conn net.Conn) (err error) {
+func (srv *Server) handleConn(conn net.Conn) (err error) {
 	clientChan := make(chan struct{})
 
 	defer func() {
@@ -162,7 +162,7 @@ func (srv *Server) ServeClient(conn net.Conn) (err error) {
 		}
 
 		request.Host = clientAddr
-		reply, err := srv.Apply(request)
+		reply, err := srv.apply(request)
 		if err != nil {
 			reply = NewErrorReply(err.Error())
 		}
@@ -175,7 +175,7 @@ func (srv *Server) ServeClient(conn net.Conn) (err error) {
 	return nil
 }
 
-func (srv *Server) Apply(r *Request) (ReplyWriter, error) {
+func (srv *Server) apply(r *Request) (ReplyWriter, error) {
 	if srv == nil || srv.methods == nil {
 		return ErrMethodNotSupported, nil
 	}
@@ -186,15 +186,6 @@ func (srv *Server) Apply(r *Request) (ReplyWriter, error) {
 	}
 
 	return fn(r)
-}
-
-func (srv *Server) ApplyString(r *Request) (string, error) {
-	reply, err := srv.Apply(r)
-	if err != nil {
-		return "", err
-	}
-
-	return ReplyToString(reply)
 }
 
 func (srv *Server) createHandlerFn(autoHandler interface{}, f *reflect.Method) (HandlerFn, error) {

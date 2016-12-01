@@ -25,7 +25,7 @@ const (
 
 var optionListen  = flag.String("listen", ":6379", `server listen path, e.g ":6379" or "/var/run/logserver.sock"`)
 var optionDir     = flag.String("dir", "./data", `root directory for logs data`)
-var optionVerbose = flag.Int("verbose", 1, `show run details`)
+var optionVerbose = flag.Int("verbose", 0, `show run details`)
 var optionTimeout = flag.Uint("timeout", 60, "timeout to close opened files")
 
 type LogFile struct {
@@ -196,7 +196,7 @@ func main() {
 		ser.Stop(10)
 	}()
 
-	err = ser.ListenAndServe()
+	err = ser.Start()
 	if err != nil {
 		fmt.Println(err)
 	}

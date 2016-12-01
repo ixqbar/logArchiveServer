@@ -35,13 +35,13 @@ func Mkdirp(dir string) error {
 	return nil
 }
 
-const pathSeparator = string(os.PathSeparator)
-
 func MkdirpByFileName(fileName string) error {
+	pathSeparator := string(os.PathSeparator)
 	s := strings.Split(fileName, pathSeparator)
 	s2 := s[:len(s)-1]
 
 	dir := strings.Join(s2, pathSeparator)
+
 	return Mkdirp(dir)
 }
 
@@ -98,7 +98,6 @@ func (t TimeInfo) Format(f string) string {
 			s += t.Second
 		default:
 			s += string(v)
-
 		}
 	}
 

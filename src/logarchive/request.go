@@ -93,4 +93,3 @@ func (r *Request) GetMap(index int) (map[string][]byte, ReplyWriter) {
 
 	return values, nil
 }
-
