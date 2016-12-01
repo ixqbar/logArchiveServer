@@ -113,7 +113,7 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 			for {
 				select {
 				case <-file.C:
-				case <-time.After(time.Second * this.Config["timeout"].(uint)):
+				case <-time.After(time.Second * time.Duration(this.Config["timeout"].(uint))):
 					logarchive.Debugf("timeout:%s", fileName)
 					this.Lock()
 					defer this.Unlock()
