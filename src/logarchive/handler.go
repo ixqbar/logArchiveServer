@@ -28,5 +28,6 @@ func (this *RedisHandler) SetConfig(config map[string]interface{}) (*RedisHandle
 }
 
 func (this *RedisHandler) CheckShield(name string) (bool) {
-	return this.Shield[name]
+	_, ok := this.Shield[name];
+	return ok;
 }
