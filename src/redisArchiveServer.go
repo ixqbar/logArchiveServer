@@ -23,10 +23,11 @@ const (
 var optionListen  = flag.String("listen", ":6379", `server listen path, e.g ":6379" or "/var/run/logserver.sock"`)
 var optionDir     = flag.String("dir", "./data", `root directory for logs data`)
 var optionVerbose = flag.Int("verbose", 0, `show run details`)
+var optionTimeout = flag.Uint("timeout", 60, "timeout to close opened files")
 
 type LogFile struct {
 	Name   string
-	C      chan string
+	C      chan int
 	Handle *os.File
 }
 
@@ -102,7 +103,7 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 		file = LogFile{
 			Name   : fileName,
 			Handle : handle,
-			C      : make(chan string),
+			C      : make(chan int),
 		}
 
 		logarchive.Debugf("reopen %s", fileName)
@@ -110,9 +111,8 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 		go func() {
 			for {
 				select {
-				case data := <-file.C:
-					logarchive.Debugf("receive:%s", data)
-				case <-time.After(time.Second * 30):
+				case <-file.C:
+				case <-time.After(time.Second * this.Config["timeout"].(uint)):
 					logarchive.Debugf("timeout:%s", fileName)
 					this.Lock()
 					defer this.Unlock()
@@ -127,7 +127,7 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 		LogFiles[fileName] = file
 	}
 
-	file.C <- fmt.Sprintf("%s -> %s", fileName, lineContent)
+	file.C <- 1
 	n, err := file.Handle.WriteString(lineContent + "\n")
 	if err != nil {
 		return "", err
@@ -167,6 +167,7 @@ func main() {
 
 	lrh.SetConfig(map[string]interface{}{
 		"path" : v,
+		"timeout" : *optionTimeout,
 	})
 
 	lrh.SetShield("Init")
@@ -175,8 +176,9 @@ func main() {
 	lrh.SetShield("Unlock")
 	lrh.SetShield("SetShield")
 	lrh.SetShield("SetConfig")
+	lrh.SetShield("CheckShield")
 
-	ser, err := logarchive.NewServer(*optionListen, lrh, lrh.Shield)
+	ser, err := logarchive.NewServer(*optionListen, lrh)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

@@ -1,5 +1,9 @@
 package logarchive
 
+type Handler interface {
+	CheckShield(string) (bool)
+}
+
 type RedisHandler struct {
 	Shield map[string]bool
 	Config map[string]interface{}
@@ -21,4 +25,8 @@ func (this *RedisHandler) SetConfig(config map[string]interface{}) (*RedisHandle
 
 	this.Config = config
 	return this
+}
+
+func (this *RedisHandler) CheckShield(name string) (bool) {
+	return this.Shield[name]
 }

@@ -19,7 +19,7 @@ type Server struct {
 	methods map[string]HandlerFn
 }
 
-func NewServer(addr string, handler interface{}, shieldMethods map[string]bool) (*Server, error) {
+func NewServer(addr string, handler Handler) (*Server, error) {
 	srv := &Server{
 		Addr    : addr,
 		methods : make(map[string]HandlerFn),
@@ -29,7 +29,7 @@ func NewServer(addr string, handler interface{}, shieldMethods map[string]bool) 
 	for i := 0; i < rh.NumMethod(); i++ {
 		method := rh.Method(i)
 
-		if shieldMethods[method.Name] {
+		if handler.CheckShield(method.Name) {
 			continue
 		}
 
@@ -55,7 +55,7 @@ func (srv *Server) ListenAndServe() error {
 
 	l, e := net.Listen(proto, srv.Addr)
 	if e != nil {
-		Debugf("run failed:%s", e.Error())
+		fmt.Errorf("run failed:%s", e.Error())
 		return e
 	}
 
