@@ -23,7 +23,7 @@ const (
 
 var optionListen  = flag.String("listen", ":6379", `server listen path, e.g ":6379" or "/var/run/logserver.sock"`)
 var optionDir     = flag.String("dir", "./data", `root directory for logs data`)
-var optionVerbose = flag.Int("verbose", 0, `show run details`)
+var optionVerbose = flag.Int("verbose", 1, `show run details`)
 var optionTimeout = flag.Uint("timeout", 60, "timeout to close opened files")
 
 type LogFile struct {
@@ -93,9 +93,8 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 	this.Lock()
 	defer this.Unlock()
 
-	file := LogFiles[fileName]
-
-	if file.Name != fileName {
+	file, ok := LogFiles[fileName]
+	if  !ok || file.Name != fileName {
 		handle, err := OpenLogFileForWrite(fmt.Sprintf("%s/%s", this.Config["path"].(string), fileName))
 		if err != nil {
 			return "", err
