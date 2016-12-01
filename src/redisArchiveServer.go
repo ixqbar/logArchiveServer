@@ -9,6 +9,7 @@ import (
 	"errors"
 	"regexp"
 	"time"
+	"runtime"
 )
 
 var (
@@ -162,6 +163,8 @@ func main() {
 	if (*optionVerbose == 1) {
 		os.Setenv("DEBUG", "ok")
 	}
+
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	lrh := &LocalRedisFileHandler{}
 
