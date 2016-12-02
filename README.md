@@ -22,9 +22,10 @@ set log_file_path_name linecontent
 ```
 
 ### TEST
+```
 {YOUR REDIS BIN PATH}/redis-cli
 set 20161202-log good
-###
+```
 
 ### FAQ
 更多疑问请+qq群 233415606 or [website http://www.hnphper.com](http://www.hnphper.com)
