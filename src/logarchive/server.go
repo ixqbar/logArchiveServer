@@ -106,7 +106,7 @@ func (srv *Server) acceptLoop() error {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 				break;
 			}
-			return err
+			continue
 		}
 
 		go func() {
