@@ -143,10 +143,7 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 }
 
 func usage() {
-	fmt.Printf("%s\n", `
-Usage: redisFielServer [options]
-Options:
-	`)
+	fmt.Printf("Usage: %s [options]\nOptions:\n", os.Args[0])
 	flag.PrintDefaults()
 	os.Exit(0)
 }
