@@ -8,7 +8,6 @@ import (
 	"errors"
 	"time"
 	"bytes"
-	"os"
 )
 
 type HandlerFn func(r *Request) (ReplyWriter, error)
@@ -16,14 +15,16 @@ type CheckerFn func(request *Request) (reflect.Value, ReplyWriter)
 type HashValue map[string][]byte
 
 type Server struct {
+	proto   string
 	addr    string
 	methods map[string]HandlerFn
-	socket  *net.TCPListener
+	socket  interface{}
 	cm      *ConnectionManager
 }
 
 func NewServer(addr string, handler Handler) (*Server, error) {
 	srv := &Server{
+		proto   : "",
 		addr    : addr,
 		methods : make(map[string]HandlerFn),
 		socket  : nil,
@@ -64,33 +65,43 @@ func (srv *Server) Start() error {
 		}
 
 		srv.socket = sock
+		srv.proto = "tcp"
 	} else {
-		file, err := os.OpenFile(srv.addr, os.O_CREATE | os.O_RDWR, 0644);
+		addr, err := net.ResolveUnixAddr("unix", srv.addr)
 		if err != nil {
-			return fmt.Errorf("fail to open sock file %v", err)
+			return fmt.Errorf("fail to resolve addr: %v", err)
 		}
 
-		listener, err := net.FileListener(file)
+		sock, err := net.ListenUnix("unix", addr)
 		if err != nil {
-			return fmt.Errorf("fail recover socket from file %v", err)
-		}
-
-		sock, ok := listener.(*net.TCPListener)
-		if !ok {
-			return fmt.Errorf("sock file is not a valid TCP socket")
+			return fmt.Errorf("fail to listen tcp: %v", err)
 		}
 
 		srv.socket = sock
+		srv.proto = "unix"
 	}
 
 	return srv.acceptLoop()
 }
 
 func (srv *Server) acceptLoop() error {
-	defer srv.socket.Close()
+	defer func() {
+		if (srv.proto == "tcp") {
+			srv.socket.(*net.TCPListener).Close()
+		} else {
+			srv.socket.(*net.UnixListener).Close()
+		}
+	}()
 
 	for {
-		conn, err := srv.socket.Accept()
+		conn, err := func() (net.Conn, error) {
+			if (srv.proto == "tcp") {
+				return srv.socket.(*net.TCPListener).Accept()
+			} else {
+				return srv.socket.(*net.UnixListener).Accept()
+			}
+		}()
+
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 				break;
@@ -111,7 +122,11 @@ func (srv *Server) acceptLoop() error {
 }
 
 func (srv *Server) Stop(timeout uint) error {
-	srv.socket.SetDeadline(time.Now())
+	if (srv.proto == "tcp") {
+		srv.socket.(*net.TCPListener).SetDeadline(time.Now())
+	} else {
+		srv.socket.(*net.UnixListener).SetDeadline(time.Now())
+	}
 
 	tt := time.NewTimer(time.Second * time.Duration(timeout))
 	wait := make(chan struct{})
