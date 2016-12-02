@@ -12,7 +12,7 @@ Options:
     	server listen path, e.g ":6379" or "/var/run/logserver.sock" (default ":6379")
   -timeout uint
     	timeout to close opened files (default 60)
-  -verbose int
+  -verbose
     	show run details
 ```
 

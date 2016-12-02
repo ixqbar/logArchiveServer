@@ -25,7 +25,7 @@ const (
 
 var optionListen  = flag.String("listen", ":6379", `server listen path, e.g ":6379" or "/var/run/logserver.sock"`)
 var optionDir     = flag.String("dir", "./data", `root directory for logs data`)
-var optionVerbose = flag.Int("verbose", 0, `show run details`)
+var optionVerbose = flag.Bool("verbose", false, `show run details`)
 var optionTimeout = flag.Uint("timeout", 60, "timeout to close opened files")
 
 type LogFile struct {
@@ -158,7 +158,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if (*optionVerbose == 1) {
+	if *optionVerbose {
 		os.Setenv("DEBUG", "ok")
 	}
 
