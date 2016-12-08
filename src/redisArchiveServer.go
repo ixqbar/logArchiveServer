@@ -113,11 +113,12 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 		logarchive.Debugf("reopen %s", fileName)
 
 		go func() {
-			interval := time.NewTimer(time.Second * time.Duration(this.Config["timeout"].(uint)))
+			delay    := time.Second * time.Duration(this.Config["timeout"].(uint))
+			interval := time.NewTicker(delay)
 			for {
 				select {
 				case <-file.C:
-					file.T = time.Now()
+					file.T = time.Now().Add(delay)
 				case <-interval.C:
 					if file.T.Before(time.Now()) {
 						logarchive.Debugf("timeout:%s", fileName)
