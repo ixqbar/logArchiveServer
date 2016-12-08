@@ -32,6 +32,7 @@ type LogFile struct {
 	Name   string
 	C      chan int
 	Handle *os.File
+	T      time.Time
 }
 
 var LogFiles map[string]LogFile = make(map[string]LogFile)
@@ -106,22 +107,27 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 			Name   : fileName,
 			Handle : handle,
 			C      : make(chan int),
+			T      : time.Now(),
 		}
 
 		logarchive.Debugf("reopen %s", fileName)
 
 		go func() {
+			interval := time.NewTimer(time.Second * time.Duration(this.Config["timeout"].(uint)))
 			for {
 				select {
 				case <-file.C:
-				case <-time.After(time.Second * time.Duration(this.Config["timeout"].(uint))):
-					logarchive.Debugf("timeout:%s", fileName)
-					this.Lock()
-					defer this.Unlock()
-					file.Handle.Close()
-					delete(LogFiles, fileName)
-					close(file.C)
-					return
+					file.T = time.Now()
+				case <-interval.C:
+					if file.T.Before(time.Now()) {
+						logarchive.Debugf("timeout:%s", fileName)
+						this.Lock()
+						defer this.Unlock()
+						file.Handle.Close()
+						delete(LogFiles, fileName)
+						close(file.C)
+						return
+					}
 				}
 			}
 		}()
