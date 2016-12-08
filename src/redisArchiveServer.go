@@ -124,6 +124,7 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 						logarchive.Debugf("timeout:%s", fileName)
 						this.Lock()
 						defer this.Unlock()
+						interval.Stop()
 						file.Handle.Close()
 						delete(LogFiles, fileName)
 						close(file.C)
