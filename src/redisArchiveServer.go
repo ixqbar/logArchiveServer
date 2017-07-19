@@ -1,7 +1,6 @@
 package main
 
 import (
-	"logarchive"
 	"fmt"
 	"os"
 	"flag"
@@ -12,6 +11,8 @@ import (
 	"runtime"
 	"os/signal"
 	"syscall"
+	"logarchive"
+	redis "github.com/jonnywang/go-kits/redis"
 )
 
 var (
@@ -25,7 +26,6 @@ const (
 
 var optionListen  = flag.String("listen", ":6379", `server listen path, e.g ":6379" or "/var/run/logserver.sock"`)
 var optionDir     = flag.String("dir", "./data", `root directory for logs data`)
-var optionVerbose = flag.Bool("verbose", false, `show run details`)
 var optionTimeout = flag.Uint("timeout", 60, "timeout to close opened files")
 
 type LogFile struct {
@@ -39,13 +39,13 @@ var LogFiles map[string]LogFile = make(map[string]LogFile)
 
 func OpenLogFileForWrite(fileName string) (*os.File, error) {
 	if err := logarchive.MkdirpByFileName(fileName); err != nil {
-		logarchive.Debugf("failed to open log file: %s", err)
+		redis.Logger.Print("failed to open log file: %s", err)
 		return nil, err
 	}
 
 	f, err := os.OpenFile(fileName, os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0644)
 	if err != nil {
-		logarchive.Debugf("failed to open log file: %s", err)
+		redis.Logger.Print("failed to open log file: %s", err)
 		return nil, err
 	}
 
@@ -53,7 +53,7 @@ func OpenLogFileForWrite(fileName string) (*os.File, error) {
 }
 
 type LocalRedisFileHandler struct {
-	logarchive.RedisHandler
+	redis.RedisHandler
 	sync.Mutex
 }
 
@@ -110,7 +110,7 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 			T      : time.Now(),
 		}
 
-		logarchive.Debugf("reopen %s", fileName)
+		redis.Logger.Printf("reopen %s", fileName)
 
 		go func() {
 			delay    := time.Second * time.Duration(this.Config["timeout"].(uint))
@@ -121,7 +121,7 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 					file.T = time.Now().Add(delay)
 				case <-interval.C:
 					if file.T.Before(time.Now()) {
-						logarchive.Debugf("timeout:%s", fileName)
+						redis.Logger.Print("timeout:%s", fileName)
 						this.Lock()
 						defer this.Unlock()
 						interval.Stop()
@@ -162,12 +162,8 @@ func main() {
 
 	v, err := logarchive.GetExistsAbsolutePath(*optionDir)
 	if err != nil {
-		fmt.Println(err)
+		redis.Logger.Print(err)
 		os.Exit(1)
-	}
-
-	if *optionVerbose {
-		os.Setenv("DEBUG", "ok")
 	}
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -187,7 +183,7 @@ func main() {
 	lrh.SetShield("SetConfig")
 	lrh.SetShield("CheckShield")
 
-	ser, err := logarchive.NewServer(*optionListen, lrh)
+	ser, err := redis.NewServer(*optionListen, lrh)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
