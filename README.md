@@ -4,7 +4,7 @@
 
 ### USAGE (./logArchiveServer -h)
 ```
-Usage: ./redisArchiveServer [options]
+Usage: ./logArchiveServer [options]
 Options:
   -dir string
     	root directory for logs data (default "./data")
@@ -28,4 +28,4 @@ set 20161202-log good
 ```
 
 ### FAQ
-更多疑问请+qq群 233415606 or [website http://www.hnphper.com](http://www.hnphper.com)
+更多疑问请+qq群 233415606

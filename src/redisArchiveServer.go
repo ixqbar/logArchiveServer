@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"logarchive"
 	redis "github.com/jonnywang/go-kits/redis"
+	"log"
 )
 
 var (
@@ -23,6 +24,10 @@ const (
 	VERSION   = "1.0.0"
 	OK        = "OK"
 )
+
+func init()  {
+	redis.Logger.SetFlags(log.Ldate | log.Ltime);
+}
 
 var optionListen  = flag.String("listen", ":6379", `server listen path, e.g ":6379" or "/var/run/logserver.sock"`)
 var optionDir     = flag.String("dir", "./data", `root directory for logs data`)
