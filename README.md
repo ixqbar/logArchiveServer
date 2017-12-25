@@ -4,16 +4,17 @@
 
 ### USAGE (./logArchiveServer -h)
 ```
-Usage: ./logArchiveServer [options]
-Options:
-  -dir string
-    	root directory for logs data (default "./data")
-  -listen string
-    	server listen path, e.g ":6379" or "/var/run/logserver.sock" (default ":6379")
-  -timeout uint
-    	timeout to close opened files (default 60)
-  -verbose
-    	show run details
+./logArchiveServer --config=config.xml
+```
+
+### config.xml
+```
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+	<address>0.0.0.0:6599</address>
+	<repertory>/data/logs</repertory>
+	<timeout>30</timeout>
+</config>
 ```
 
 ### save log to server command
@@ -24,7 +25,7 @@ set log_file_path_name linecontent
 ### TEST
 ```
 {YOUR REDIS BIN PATH}/redis-cli
-set 20161202-log good
+set 20161202.log good
 ```
 
 ### FAQ
