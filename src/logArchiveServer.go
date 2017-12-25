@@ -22,7 +22,7 @@ var (
 )
 
 const (
-	VERSION = "1.1.0"
+	VERSION = "1.2.0"
 	OK      = "OK"
 )
 
@@ -43,6 +43,7 @@ type LogFile struct {
 	C      chan int
 	Handle *os.File
 	T      time.Time
+	sync.Mutex
 }
 
 var LogFiles map[string]LogFile = make(map[string]LogFile)
@@ -62,55 +63,12 @@ func OpenLogFileForWrite(fileName string) (*os.File, error) {
 	return f, nil
 }
 
-type LocalRedisFileHandler struct {
-	redis.RedisHandler
-	sync.Mutex
-}
-
-func (this *LocalRedisFileHandler) Init(db int) error {
-
-	return nil
-}
-
-func (this *LocalRedisFileHandler) Shutdown() error {
-	for _, v := range LogFiles {
-		v.Handle.Close()
-		close(v.C)
-	}
-
-	return nil
-}
-
-func (this *LocalRedisFileHandler) Select(db int) (string, error) {
-	return OK, nil
-}
-
-func (this *LocalRedisFileHandler) Version() (string, error) {
-	return VERSION, nil
-}
-
-func (this *LocalRedisFileHandler) FlushAll() (string, error) {
-	return OK, nil
-}
-
-func (this *LocalRedisFileHandler) FlushDB(db int) (string, error) {
-	return "", ERRPARAMS
-}
-
-func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (string, error) {
-	matched, _ := regexp.MatchString("^[a-zA-Z\\-_:.]{1,}$", fileName)
-	if !matched {
-		return "", ERRPARAMS
-	}
-
-	this.Lock()
-	defer this.Unlock()
-
+func SaveLogToFile(fileName string, lineContent string) error {
 	file, ok := LogFiles[fileName]
 	if !ok || file.Name != fileName {
 		handle, err := OpenLogFileForWrite(path.Join(logarchive.Config.Repertory, fileName))
 		if err != nil {
-			return "", err
+			return err
 		}
 
 		file = LogFile{
@@ -132,8 +90,8 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 				case <-interval.C:
 					if file.T.Before(time.Now()) {
 						redis.Logger.Printf("timeout:%s", fileName)
-						this.Lock()
-						defer this.Unlock()
+						file.Lock()
+						defer file.Unlock()
 						interval.Stop()
 						file.Handle.Close()
 						delete(LogFiles, fileName)
@@ -147,15 +105,87 @@ func (this *LocalRedisFileHandler) Set(fileName string, lineContent string) (str
 		LogFiles[fileName] = file
 	}
 
+	file.Lock()
+	defer file.Unlock()
+
 	file.C <- 1
 	n, err := file.Handle.WriteString(lineContent + "\n")
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	if n != len(lineContent)+1 {
-		return "", errors.New("not full write content to file")
+		return errors.New("not full write content to file")
 	}
+
+	return nil;
+}
+
+type LocalRedisFileHandler struct {
+	redis.RedisHandler
+	sync.Mutex
+	c chan int
+	logs chan []string
+}
+
+func (that *LocalRedisFileHandler) Init() error {
+	that.logs = make(chan []string, 1024)
+	that.c = make(chan int, 1)
+
+	go func() {
+		E:
+		for {
+			select {
+			case <-that.c:
+				break E
+			case logContent := <- that.logs:
+				logarchive.Logger.Printf("%v", logContent)
+				if len(logContent[0]) > 0 && len(logContent[1]) > 0 {
+					SaveLogToFile(logContent[0], logContent[1])
+				}
+			}
+		}
+
+		logarchive.Logger.Print("log record process exit")
+	}()
+
+	return nil
+}
+
+func (that *LocalRedisFileHandler) Shutdown() error {
+	for _, v := range LogFiles {
+		v.Handle.Close()
+		close(v.C)
+	}
+
+	that.c <- 1
+
+	return nil
+}
+
+func (that *LocalRedisFileHandler) Select(db int) (string, error) {
+	return OK, nil
+}
+
+func (that *LocalRedisFileHandler) Version() (string, error) {
+	return VERSION, nil
+}
+
+func (that *LocalRedisFileHandler) FlushAll() (string, error) {
+	return OK, nil
+}
+
+func (that *LocalRedisFileHandler) FlushDB(db int) (string, error) {
+	return "", ERRPARAMS
+}
+
+func (that *LocalRedisFileHandler) Set(fileName string, lineContent string) (string, error) {
+	matched, _ := regexp.MatchString("^[a-zA-Z\\-_:.0-9]{1,}$", fileName)
+	if !matched {
+		return "", ERRPARAMS
+	}
+
+	that.logs <- []string{fileName, lineContent}
 
 	return OK, nil
 }
@@ -188,6 +218,8 @@ func main() {
 	lrh.SetShield("SetConfig")
 	lrh.SetShield("CheckShield")
 
+	lrh.Init()
+
 	ser, err := redis.NewServer(logarchive.Config.Address, lrh)
 	if err != nil {
 		fmt.Println(err)
@@ -200,6 +232,7 @@ func main() {
 	go func() {
 		<-sigs
 		ser.Stop(10)
+		lrh.Shutdown()
 	}()
 
 	err = ser.Start()
@@ -207,9 +240,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	lrh.Shutdown()
-
-	fmt.Printf("server shudown\n")
+	logarchive.Logger.Print("server shudown")
 
 	os.Exit(0)
 }
