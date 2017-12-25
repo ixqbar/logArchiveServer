@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"path/filepath"
+	"errors"
+	"fmt"
 )
 
 func GetExistsAbsolutePath(p string) (string, error) {
@@ -106,4 +108,30 @@ func (t TimeInfo) Format(f string) string {
 
 func GetFormattedTime(f string) string {
 	return GetTime().Format(f)
+}
+
+func CheckFileIsDirectory(path string) (bool, error)  {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	if fi.IsDir() == false {
+		return false, errors.New("target file is not folder")
+	}
+
+	return true, nil
+}
+
+func GetFileSize(file string) (int64, error) {
+	fi, err := os.Stat(file)
+	if err != nil {
+		return 0, err
+	}
+
+	if fi.IsDir() {
+		return 0, errors.New(fmt.Sprintf("target file %s is not file", file))
+	}
+
+	return fi.Size(), nil
 }
