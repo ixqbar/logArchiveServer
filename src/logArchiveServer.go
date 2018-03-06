@@ -209,16 +209,9 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	lrh := &LocalRedisFileHandler{}
-
-	lrh.SetShield("Init")
-	lrh.SetShield("Shutdown")
-	lrh.SetShield("Lock")
-	lrh.SetShield("Unlock")
-	lrh.SetShield("SetShield")
-	lrh.SetShield("SetConfig")
-	lrh.SetShield("CheckShield")
-
-	lrh.Init()
+	lrh.Initiation(func(){
+		lrh.Init()
+	})
 
 	ser, err := redis.NewServer(logarchive.Config.Address, lrh)
 	if err != nil {
