@@ -22,7 +22,7 @@ var (
 )
 
 const (
-	VERSION = "1.2.0"
+	VERSION = "1.2.1"
 	OK      = "OK"
 )
 
@@ -33,7 +33,7 @@ func init() {
 var optionConfigFile = flag.String("config", "./config.xml", "configure xml file")
 
 func usage() {
-	fmt.Printf("Usage: %s [options]Options:", os.Args[0])
+	fmt.Printf("Version: %s\nUsage: %s [options]Options:", VERSION, os.Args[0])
 	flag.PrintDefaults()
 	os.Exit(0)
 }
