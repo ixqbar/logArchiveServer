@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jonnywang/go-kits/redis"
-	"log"
 	"logarchive"
 	"os"
 	"os/signal"
@@ -22,13 +21,9 @@ var (
 )
 
 const (
-	VERSION = "1.2.1"
+	VERSION = "1.2.2"
 	OK      = "OK"
 )
-
-func init() {
-	redis.Logger.SetFlags(log.Ldate | log.Ltime)
-}
 
 var optionConfigFile = flag.String("config", "./config.xml", "configure xml file")
 
@@ -39,11 +34,11 @@ func usage() {
 }
 
 type LogFile struct {
-	Name   string
-	C      chan int
-	Handle *os.File
-	T      time.Time
 	sync.Mutex
+	Name   string
+	Handle *os.File
+	C      chan int
+	T      time.Time
 }
 
 var LogFiles map[string]LogFile = make(map[string]LogFile)
@@ -78,11 +73,18 @@ func SaveLogToFile(fileName string, lineContent string) error {
 			T:      time.Now(),
 		}
 
+		LogFiles[fileName] = file
+
 		redis.Logger.Printf("reopen %s", fileName)
 
 		go func() {
 			delay := time.Second * time.Duration(logarchive.Config.Timeout)
 			interval := time.NewTicker(delay)
+			defer func() {
+				interval.Stop()
+				close(file.C)
+			}()
+
 			for {
 				select {
 				case <-file.C:
@@ -92,17 +94,13 @@ func SaveLogToFile(fileName string, lineContent string) error {
 						redis.Logger.Printf("timeout:%s", fileName)
 						file.Lock()
 						defer file.Unlock()
-						interval.Stop()
 						file.Handle.Close()
 						delete(LogFiles, fileName)
-						close(file.C)
 						return
 					}
 				}
 			}
 		}()
-
-		LogFiles[fileName] = file
 	}
 
 	file.Lock()
@@ -114,7 +112,7 @@ func SaveLogToFile(fileName string, lineContent string) error {
 		return err
 	}
 
-	if n != len(lineContent)+1 {
+	if n != len(lineContent) + 1 {
 		return errors.New("not full write content to file")
 	}
 
@@ -122,8 +120,8 @@ func SaveLogToFile(fileName string, lineContent string) error {
 }
 
 type LocalRedisFileHandler struct {
-	redis.RedisHandler
 	sync.Mutex
+	redis.RedisHandler
 	c chan int
 	logs chan []string
 }
@@ -139,14 +137,14 @@ func (that *LocalRedisFileHandler) Init() error {
 			case <-that.c:
 				break E
 			case logContent := <- that.logs:
-				logarchive.Logger.Printf("%v", logContent)
+				redis.Logger.Printf("%v", logContent)
 				if len(logContent[0]) > 0 && len(logContent[1]) > 0 {
 					SaveLogToFile(logContent[0], logContent[1])
 				}
 			}
 		}
 
-		logarchive.Logger.Print("log record process exit")
+		redis.Logger.Print("log record process exit")
 	}()
 
 	return nil
@@ -169,6 +167,14 @@ func (that *LocalRedisFileHandler) Select(db int) (string, error) {
 
 func (that *LocalRedisFileHandler) Version() (string, error) {
 	return VERSION, nil
+}
+
+func (that *LocalRedisFileHandler) Ping(message string) (string, error)  {
+	if len(message) > 0 {
+		return message, nil
+	}
+
+	return "PONG", nil
 }
 
 func (that *LocalRedisFileHandler) FlushAll() (string, error) {
@@ -200,11 +206,11 @@ func main() {
 
 	_, err := logarchive.ParseXmlConfig(*optionConfigFile)
 	if err != nil {
-		logarchive.Logger.Print(err)
+		redis.Logger.Print(err)
 		os.Exit(1)
 	}
 
-	logarchive.Logger.Printf("read config %+v", logarchive.Config)
+	redis.Logger.Printf("read config %+v", logarchive.Config)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -233,7 +239,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	logarchive.Logger.Print("server shudown")
+	redis.Logger.Print("server shudown")
 
 	os.Exit(0)
 }
