@@ -12,6 +12,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <config>
 	<address>0.0.0.0:6599</address>
+	<user>www-data</user>
+	<group>www-data</group>
+	<perm>0755</perm>
 	<repertory>/data/logs</repertory>
 	<timeout>30</timeout>
 </config>
