@@ -21,7 +21,7 @@ var (
 )
 
 const (
-	VERSION = "1.2.2"
+	VERSION = "1.3.0"
 	OK      = "OK"
 )
 
@@ -45,15 +45,17 @@ var LogFiles map[string]LogFile = make(map[string]LogFile)
 
 func OpenLogFileForWrite(fileName string) (*os.File, error) {
 	if err := logarchive.MkdirpByFileName(fileName); err != nil {
-		redis.Logger.Print("failed to open log file: %s", err)
+		redis.Logger.Printf("failed to open log file: %s", err)
 		return nil, err
 	}
 
-	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, logarchive.Config.FileConfig.Perm)
 	if err != nil {
-		redis.Logger.Print("failed to open log file: %s", err)
+		redis.Logger.Printf("failed to open log file: %s", err)
 		return nil, err
 	}
+
+	go logarchive.Chown(fileName, logarchive.Config.FileConfig.Uid, logarchive.Config.FileConfig.Gid)
 
 	return f, nil
 }
@@ -96,6 +98,7 @@ func SaveLogToFile(fileName string, lineContent string) error {
 						defer file.Unlock()
 						file.Handle.Close()
 						delete(LogFiles, fileName)
+						go logarchive.Chown(path.Join(logarchive.Config.Repertory, file.Name), logarchive.Config.FileConfig.Uid, logarchive.Config.FileConfig.Gid)
 						return
 					}
 				}

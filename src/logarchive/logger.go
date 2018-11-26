@@ -1,10 +1,8 @@
 package logarchive
 
 import (
-	"github.com/jonnywang/go-kits/redis"
 	"log"
+	"os"
 )
 
-func init()  {
-	redis.Logger.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-}
+var Logger = log.New(os.Stdout, "", log.Ldate | log.Lmicroseconds | log.Lshortfile)

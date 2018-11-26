@@ -135,3 +135,12 @@ func GetFileSize(file string) (int64, error) {
 
 	return fi.Size(), nil
 }
+
+func Chown(name string ,uid, gid int) (error) {
+	err := os.Chown(name, uid, gid)
+	if err != nil {
+		Logger.Printf("chown %s failed", name, err)
+	}
+
+	return err
+}

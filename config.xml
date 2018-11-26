@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <config>
 	<address>0.0.0.0:6599</address>
+    <user>xingqiba</user>
+    <group>staff</group>
+    <perm>0755</perm>
 	<repertory>/Users/xingqiba/workspace/go/logArchiveServer/logs</repertory>
-	<timeout>30</timeout>
+	<timeout>5</timeout>
 </config>
